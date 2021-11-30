@@ -1,19 +1,105 @@
 from __future__ import print_function
+
+from termcolor import colored
+import calendar
 import datetime
+import getopt
 import os.path
-from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
+import sys
+
+from dateutil import parser
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 
+SECONDS_IN_HOUR = 3600
+YEAR_BOUNDS = (2000, datetime.datetime.now().year)
+MONTH_BOUNDS = (1, 12)
+DIGIT_BOUNDS = (0, 14)
+
+HELP_TEXT = """
+Usage:
+    main.py -p <hourly_payment> 
+optional:
+    --help
+    -v --verbose display more stuff
+    --payment <hourly_payment>
+    -y --year <year> # year to count hours in, this year if not specified
+    -m --month <month> # month to count hours in, this year if not specified 
+    -d --digits <digits> # number of round digits, default = 2, 0 = display max
+"""
+
+REQUIRED_ARGS: list[tuple[str, str]] = [
+    ('-p', '--payment')
+]
+
+
+def print_red(text):
+    print(colored(text, "red"))
+
+
+def print_green(text):
+    print(colored(text, "green"))
+
+
+def str_arg_to_num(arg: str, opt: str, bounds: tuple[int, int] = (-sys.maxsize, sys.maxsize)):
+    try:
+        val = int(arg)
+        if val < bounds[0] or val > bounds[1]:
+            print_red(f"invalid value for parameter {opt} : {arg}")
+            print_red(f"value has to be between {bounds[0]} and {bounds[1]}")
+            print(HELP_TEXT)
+            sys.exit()
+
+        return val
+    except ValueError:
+        print_red(f"invalid value for parameter {opt} : {arg}")
+        print(HELP_TEXT)
+        sys.exit()
+
+
+def check_required(opts: list[tuple[str, str]]):
+    for required_arg in REQUIRED_ARGS:
+        if not any(arg_option in [val[0] for val in opts] for arg_option in required_arg):
+            print_red(f"one of the required params {required_arg} has to be specified")
+            print(HELP_TEXT)
+            sys.exit()
+
 
 def main():
-    """Shows basic usage of the Google Calendar API.
-    Prints the start and name of the next 10 events on the user's calendar.
-    """
+    current_date = datetime.datetime.now()
+    digits = 2
+    year = current_date.year
+    month = current_date.month
+    hourly_payment = 45
+    verbose = False
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "hvp:y:m:d:", ["verbose", "payment=", "year=", "month=", "digits="])
+    except getopt.GetoptError:
+        sys.exit(2)
+
+    check_required(opts)
+
+    for opt, arg in opts:
+        if opt == '-h':
+            print(HELP_TEXT)
+            sys.exit()
+        elif opt in ("-p", "--payment"):
+            hourly_payment = str_arg_to_num(arg, opt)
+        elif opt in ("-y", "--year"):
+            year = str_arg_to_num(arg, opt, YEAR_BOUNDS)
+        elif opt in ("-m", "--month"):
+            month = str_arg_to_num(arg, opt, MONTH_BOUNDS)
+        elif opt in ("-d", "--digits"):
+            digits = str_arg_to_num(arg, opt, DIGIT_BOUNDS)
+        elif opt in ("-v", "--verbose"):
+            verbose = True
+
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -34,19 +120,41 @@ def main():
 
     service = build('calendar', 'v3', credentials=creds)
 
-    # Call the Calendar API
-    now = datetime.datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
-    print('Getting the upcoming 10 events')
-    events_result = service.events().list(calendarId='primary', timeMin=now,
-                                        maxResults=10, singleEvents=True,
-                                        orderBy='startTime').execute()
+    first_day = datetime.datetime(year=year, month=month, day=1)
+    last_day = datetime.datetime(year=year, month=month, day=calendar.monthrange(year, month)[1])
+
+    first_day_formatted = first_day.isoformat() + 'Z'
+    last_day_formatted = last_day.isoformat() + 'Z'
+
+    events_result = service.events().list(calendarId='primary',
+                                          timeMin=first_day_formatted,
+                                          timeMax=last_day_formatted,
+                                          singleEvents=True,
+                                          orderBy='startTime').execute()
     events = events_result.get('items', [])
 
     if not events:
-        print('No upcoming events found.')
+        print_red("no events found")
+
+    num_hours = 0
     for event in events:
         start = event['start'].get('dateTime', event['start'].get('date'))
-        print(start, event['summary'])
+        end = event['end'].get('dateTime', event['start'].get('date'))
+        summary = event['summary']
+
+        if "work" in summary.lower():
+            start_time = parser.parse(start)
+            end_time = parser.parse(end)
+
+            if verbose:
+                print(f"{start_time.strftime('%H:%M')}-{end_time.strftime('%H:%M %a %d-%m-%Y')}")
+
+            length = end_time - start_time
+            hours = length.total_seconds() / SECONDS_IN_HOUR
+            num_hours += hours
+    print()
+    print_green(f"total hours: {num_hours}")
+    print_green(f"total revenue: {round(num_hours * hourly_payment, digits)}")
 
 
 if __name__ == '__main__':
