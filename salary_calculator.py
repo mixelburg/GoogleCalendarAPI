@@ -31,6 +31,8 @@ CLIENT_CONFIG = {
   }
 }
 
+TOKEN_FILE_NAME = "token.json"
+
 SECONDS_IN_HOUR = 3600
 YEAR_BOUNDS = (2000, datetime.datetime.now().year)
 MONTH_BOUNDS = (1, 12)
@@ -98,7 +100,7 @@ def main():
     try:
         opts, args = getopt.getopt(
             sys.argv[1:],
-            "hvp:y:m:d:s:", ["verbose", "payment=", "year=", "month=", "digits=", "search="]
+            "hvp:y:m:d:s:", ["verbose", "clear", "payment=", "year=", "month=", "digits=", "search="]
         )
     except getopt.GetoptError:
         sys.exit(2)
@@ -121,13 +123,16 @@ def main():
             verbose = True
         elif opt in ("-s", "--search"):
             search_words = arg.split(' ')
+        elif opt == "--clear":
+            if os.path.exists(TOKEN_FILE_NAME):
+                os.remove(TOKEN_FILE_NAME)
 
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
     # time.
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    if os.path.exists(TOKEN_FILE_NAME):
+        creds = Credentials.from_authorized_user_file(TOKEN_FILE_NAME, SCOPES)
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
@@ -138,7 +143,7 @@ def main():
             #     'credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
         # Save the credentials for the next run
-        with open('token.json', 'w') as token:
+        with open(TOKEN_FILE_NAME, 'w') as token:
             token.write(creds.to_json())
 
     service = build('calendar', 'v3', credentials=creds)
