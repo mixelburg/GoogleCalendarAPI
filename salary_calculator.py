@@ -89,7 +89,7 @@ def check_required(opts: list[tuple[str, str]]):
 
 
 def main():
-    search_words = "work"
+    search_words = ["work"]
     current_date = datetime.datetime.now()
     digits = 2
     year = current_date.year
@@ -114,11 +114,11 @@ def main():
         elif opt in ("-p", "--payment"):
             hourly_payment = str_arg_to_num(arg, opt)
         elif opt in ("-y", "--year"):
-            year = str_arg_to_num(arg, opt, YEAR_BOUNDS)
+            year = int(str_arg_to_num(arg, opt, YEAR_BOUNDS))
         elif opt in ("-m", "--month"):
-            month = str_arg_to_num(arg, opt, MONTH_BOUNDS)
+            month = int(str_arg_to_num(arg, opt, MONTH_BOUNDS))
         elif opt in ("-d", "--digits"):
-            digits = str_arg_to_num(arg, opt, DIGIT_BOUNDS)
+            digits = int(str_arg_to_num(arg, opt, DIGIT_BOUNDS))
         elif opt in ("-v", "--verbose"):
             verbose = True
         elif opt in ("-s", "--search"):
@@ -176,12 +176,14 @@ def main():
             end_time = parser.parse(end)
 
             if verbose:
-                print(f"work {start_time.strftime('%H:%M')}-{end_time.strftime('%H:%M %a %d-%m-%Y')}")
+                print(f"{summary} {start_time.strftime('%H:%M')}-{end_time.strftime('%H:%M %a %d-%m-%Y')}")
+                print()
 
             length = end_time - start_time
             hours = length.total_seconds() / SECONDS_IN_HOUR
             num_hours += hours
     print()
+    print_green(f"Summary for {calendar.month_name[3]} {year}")
     print_green(f"hourly payment: {hourly_payment}")
     print_green(f"total work hours: {round(num_hours, digits)}")
     print_green(f"total revenue: {round(num_hours * hourly_payment, digits)}")
