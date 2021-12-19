@@ -1,4 +1,5 @@
 import calendar
+import operator
 import os
 import sys
 from datetime import datetime
@@ -6,6 +7,9 @@ from typing import Any
 
 from tap import Tap
 from termcolor import colored
+from util import print_calendar
+from functools import reduce
+from operator import add
 
 from dateutil import parser
 from google.auth.transport.requests import Request
@@ -110,15 +114,14 @@ def main():
     service = build('calendar', 'v3', credentials=get_creds())
 
     first_day = datetime(year=args.year, month=args.month,
-                         day=1) \
-                    .isoformat() + 'Z'
+                         day=1)
+
     last_day = datetime(year=args.year, month=args.month,
-                        day=calendar.monthrange(args.year, args.month)[1])\
-                   .isoformat() + 'Z'
+                        day=calendar.monthrange(args.year, args.month)[1])
 
     events_result = service.events().list(calendarId='primary',
-                                          timeMin=first_day,
-                                          timeMax=last_day,
+                                          timeMin=first_day.isoformat() + 'Z',
+                                          timeMax=last_day.isoformat() + 'Z',
                                           singleEvents=True,
                                           orderBy='startTime').execute()
     events = events_result.get('items', [])
@@ -127,7 +130,7 @@ def main():
         print(get_red("no events found"))
         sys.exit()
 
-    num_hours = 0
+    days: list[tuple[datetime, float]] = []
     for event in events:
         start_time = parser.parse(event['start'].get('dateTime', event['start'].get('date')))
         end_time = parser.parse(event['end'].get('dateTime', event['start'].get('date')))
@@ -138,14 +141,19 @@ def main():
                 print(f"{summary} {start_time.strftime('%H:%M')}-{end_time.strftime('%H:%M %a %d-%m-%Y')}")
                 print()
 
-            length = end_time - start_time
-            hours = length.total_seconds() / SECONDS_IN_HOUR
-            num_hours += hours
+            days.append((start_time, (end_time - start_time).total_seconds() / SECONDS_IN_HOUR))
+
+    # TODO: print calendary
+
+    total_hours: float = 0
+    for day in days:
+        total_hours += day[1]
+    print_calendar(first_day, days)
     print()
-    print(get_green("Summary for {calendar.month_name[3]} {year}"))
+    print(get_green(f"Summary for {calendar.month_name[3]} {args.year}"))
     print(get_green("hourly payment: {hourly_payment}"))
-    print(get_green(f"total work hours: {round(num_hours, 2)}"))
-    print(get_green(f"total revenue: {round(num_hours * args.payment, 2)}"))
+    print(get_green(f"total work hours: {round(total_hours, 2)}"))
+    print(get_green(f"total revenue: {round(total_hours * args.payment, 2)}"))
 
 
 if __name__ == '__main__':
