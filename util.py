@@ -1,6 +1,7 @@
 import calendar
 from datetime import datetime
 from typing import Union
+from my_colors import get_yl, get_bl, get_ok
 
 
 def f_w(day_num: int):
@@ -29,27 +30,33 @@ def format_days(days: list[tuple[datetime, float]]) -> list[float]:
     return ret
 
 
-def print_calendar(first_day: datetime, days: list[tuple[datetime, float]]):
+WEEK_DAYS_MARGIN = ' ' * 2
+WEEK_DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'total']
+WEEK_DAY_SIZE = ' ' * 2
+HOURS_CNT_SIZE = ' ' * 4
+MARGIN = ' ' * 2
+BLANK = WEEK_DAY_SIZE + HOURS_CNT_SIZE + MARGIN
+
+
+def print_calendar(first_day: datetime, days: list[tuple[datetime, float]], week_max: int):
     days = format_days(days)
 
-    print('  Su      Mo      Tu      We      Th      Fr      Sa      total')
+    print(get_yl(WEEK_DAYS_MARGIN + f'{HOURS_CNT_SIZE}{MARGIN}'.join(WEEK_DAYS)))
     for i in range(f_w(first_day.weekday())):
-        printnn('        ')
+        printnn(BLANK)
     w_total = 0
     for i in range(1, len(days) + 1):
         w_total += days[i - 1]
-        printnn(f'{get_padded(i, 2)}')
-        if days[i-1]:
-            printnn(f':{get_padded(round(days[i-1], 1))}  ')
+        printnn(f'{get_bl(get_padded(i, 2))}')
+        if days[i - 1]:
+            printnn(f':{get_padded(round(days[i - 1], 1))}{MARGIN}')
         else:
-            printnn('      ')
+            printnn(f'{HOURS_CNT_SIZE}{MARGIN}')
         if not (i + f_w(first_day.weekday())) % 7 or i == len(days):
             if i == len(days):
                 for _ in range(7 - (i + f_w(first_day.weekday())) % 7):
-                    printnn('        ')
+                    printnn(BLANK)
 
-            printnn(f'  {get_padded(round(w_total, 1))}')
+            printnn(f'{WEEK_DAY_SIZE}{get_ok(get_padded(round(w_total, 1)), w_total <= week_max)}')
             w_total = 0
             print()
-
-

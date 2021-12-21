@@ -1,15 +1,14 @@
 import calendar
-import operator
 import os
 import sys
 from datetime import datetime
 from typing import Any
 
+import google.auth.exceptions
 from tap import Tap
-from termcolor import colored
+
+from my_colors import get_rd, get_gr
 from util import print_calendar
-from functools import reduce
-from operator import add
 
 from dateutil import parser
 from google.auth.transport.requests import Request
@@ -40,14 +39,6 @@ TOKEN_FILE_NAME = "token.json"
 SECONDS_IN_HOUR = 3600
 
 
-def get_red(text: str):
-    return colored(text, "red")
-
-
-def get_green(text: str):
-    return colored(text, "green")
-
-
 class Parser(Tap):
     add_help = True
     _current_date = datetime.now()
@@ -57,6 +48,7 @@ class Parser(Tap):
     month: int = _current_date.month
     search: list = ['work']
     ignore_case: bool = True
+    week_max: int = 45
 
     def configure(self) -> None:
         self.add_argument('-v', '--verbose',
@@ -71,6 +63,8 @@ class Parser(Tap):
                           help='words in event summary to search for, default = "work"')
         self.add_argument('-i', '--ignore_case',
                           help='ignore case in search words')
+        self.add_argument('-w', '--week_max',
+                          help='max number of hours per week')
 
     def process_args(self) -> None:
         if self.month < 1 or self.month > 12:
@@ -108,7 +102,7 @@ def main():
     try:
         args = Parser().parse_args()
     except ValueError as e:
-        print(get_red(str(e)))
+        print(get_rd(str(e)))
         return
 
     service = build('calendar', 'v3', credentials=get_creds())
@@ -127,7 +121,7 @@ def main():
     events = events_result.get('items', [])
 
     if not events:
-        print(get_red("no events found"))
+        print(get_rd("no events found"))
         sys.exit()
 
     days: list[tuple[datetime, float]] = []
@@ -148,13 +142,16 @@ def main():
     total_hours: float = 0
     for day in days:
         total_hours += day[1]
-    print_calendar(first_day, days)
+    print_calendar(first_day, days, args.week_max)
     print()
-    print(get_green(f"Summary for {calendar.month_name[3]} {args.year}"))
-    print(get_green("hourly payment: {hourly_payment}"))
-    print(get_green(f"total work hours: {round(total_hours, 2)}"))
-    print(get_green(f"total revenue: {round(total_hours * args.payment, 2)}"))
+    print(get_gr(f"Summary for {calendar.month_name[args.month]} {args.year}"))
+    print(get_gr(f"hourly payment: {args.payment}"))
+    print(get_gr(f"total work hours: {round(total_hours, 2)}"))
+    print(get_gr(f"total revenue: {round(total_hours * args.payment, 2)}"))
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except google.auth.exceptions.TransportError:
+        print(get_rd("No internet connection"))
