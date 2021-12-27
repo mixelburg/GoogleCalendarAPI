@@ -1,4 +1,4 @@
-from colors import color
+from termcolor import colored as color
 
 
 def get_rd(text: str):

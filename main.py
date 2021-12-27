@@ -1,7 +1,7 @@
 import calendar
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import google.auth.exceptions
@@ -110,8 +110,11 @@ def main():
     first_day = datetime(year=args.year, month=args.month,
                          day=1)
 
+    # last_day = datetime(year=args.year, month=args.month,
+    #                     day=calendar.monthrange(args.year, args.month)[1])
+
     last_day = datetime(year=args.year, month=args.month,
-                        day=calendar.monthrange(args.year, args.month)[1])
+                        day=calendar.monthrange(args.year, args.month)[1]) + timedelta(days=1)
 
     events_result = service.events().list(calendarId='primary',
                                           timeMin=first_day.isoformat() + 'Z',
