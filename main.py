@@ -88,8 +88,6 @@ def get_creds() -> Any:
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_config(CLIENT_CONFIG, SCOPES)
-            # flow = InstalledAppFlow.from_client_secrets_file(
-            #     'credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
         # Save the credentials for the next run
         with open(TOKEN_FILE_NAME, 'w') as token:
@@ -105,13 +103,13 @@ def main():
         print(get_rd(str(e)))
         return
 
-    service = build('calendar', 'v3', credentials=get_creds())
+    try:
+        service = build('calendar', 'v3', credentials=get_creds())
+    except google.auth.exceptions.RefreshError:
+        os.remove(f'./{TOKEN_FILE_NAME}')
+        service = build('calendar', 'v3', credentials=get_creds())
 
-    first_day = datetime(year=args.year, month=args.month,
-                         day=1)
-
-    # last_day = datetime(year=args.year, month=args.month,
-    #                     day=calendar.monthrange(args.year, args.month)[1])
+    first_day = datetime(year=args.year, month=args.month, day=1)
 
     last_day = datetime(year=args.year, month=args.month,
                         day=calendar.monthrange(args.year, args.month)[1]) + timedelta(days=1)
